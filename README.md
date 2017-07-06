@@ -1,8 +1,6 @@
 # TireLibrary
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/tire_library`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+TireLibrary is a client for Tire Library API. You can see the API documentation here: [https://developer.tirelibrary.com](https://developer.tirelibrary.com)
 
 ## Installation
 
@@ -22,7 +20,27 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### Initialization
+
+```ruby
+client = TireLibrary::Client.new('api_key')
+```
+
+### Available Methods
+
+Search:
+
+```ruby
+client.search(query: 'michelin' , page: 3,  type: 'makes')
+```
+
+Sizes:
+
+```ruby
+client.sizes(page: 2) # returns the page 2 of all sizes.
+client.sizes(id: 33973) # returns a specific size.
+client.sizes(id: 33973,  other_sizes: true) # returns all other sizes within the model of the specified tire size.
+```
 
 ## Development
 
