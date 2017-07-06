@@ -1,76 +1,85 @@
 class TireLibrary::Client
   include HTTParty
-  base_uri 'api.stackexchange.com'
+  base_uri 'https://api.tirelibrary.com'
 
   def initialize(api_key, version = 'v1')
     @version = version
-    self.class.headers = {'X-API-KEY' => @api_key}
+    self.class.headers('X-API-KEY' => api_key)
   end
 
-  def search(:type, :query, :page = 1)
-    handle_request do
-      self.class.get(build_path("search", type), query: {q: query , page: page})
+  def search(params)
+    handle_response do
+      self.class.get(build_path("search", params[:type]), query: {q: params[:query] , page: params[:page]})
     end
   end
 
-  def sizes(:id, :page = 1, :other_sizes = false)
-    nested_filter = "otherSizes" if other_sizes == true
-    data_request(type: 'sizes', id: id, page: page, nested_filter: nested_filter)
+  def sizes(params)
+    nested_filter = "otherSizes" if params[:other_sizes] == true
+    data_request(type: 'sizes', id: params[:id], page: params[:page], nested_filter: nested_filter)
   end
 
-  def models(:id, :page = 1, :sizes = false)
-    nested_filter = "sizes" if sizes == true
-    data_request(type: 'models', id: id, page: page, nested_filter: nested_filter)
+  def models(params)
+    nested_filter = "sizes" if params[:sizes] == true
+    data_request(type: 'models', id: params[:id], page: params[:page], nested_filter: nested_filter)
   end
 
-  def makes(:id, :page = 1, :models = false)
+  def makes(params)
     nested_filter = "models" if models == true
-    data_request(type: 'makes', id: id, page: page, nested_filter: nested_filter)
+    data_request(type: 'makes', id: params[:id], page: params[:page], nested_filter: nested_filter)
   end
 
-  def classes(:id, :page = 1, :subclasses = false)
+  def classes(params)
     nested_filter = "subclasses" if subclasses == true
-    data_request(type: 'classes', id: id, page: page, nested_filter: nested_filter)
+    data_request(type: 'classes', id: params[:id], page: params[:page], nested_filter: nested_filter)
   end
 
-  def subclasses(:id, :page = 1, :models = false)
+  def subclasses(params)
     nested_filter = "models" if models == true
-    data_request(type: 'subclasses', id: id, page: page, nested_filter: nested_filter)
+    data_request(type: 'subclasses', id: params[:id], page: params[:page], nested_filter: nested_filter)
   end
 
   def datasheets(id)
-    handle_request do
+    handle_response do
       self.class.get(build_path("templates", 'datasheets', id))
     end
   end
 
   protected
 
-  def data_request(:type, :id, :page, :nested_filter)
-    query = {page: page} unless id
-    handle_request do
-      self.class.get(build_path("data", type, id, nested_filter), query: query)
+  def data_request(params)
+    query = {page: params[:page]} unless params[:id]
+    handle_response do
+      self.class.get(
+        build_path("data", params[:type], params[:id], params[:nested_filter]),
+        query: params[:query]
+      )
     end
   end
 
-  def handle_request(&block)
+  def handle_response(&block)
     response = block.call
     result = MultiJson.load(response.body, symbolize_keys: true)
-    case response.status
+    case response.code
     when 200..299 #Success
       result
     when 400 #BadRequest
-      result
+      fail TireLibrary::Errors::BadRequest, result[:message]
     when 401 #Unauthorized
+      fail TireLibrary::Errors::Unauthorized, result[:message]
     when 403 #Forbidden
+      fail TireLibrary::Errors::Forbidden, result[:message]
     when 404 #NotFound
-    when 422 #Unprocessable Entity
+      fail TireLibrary::Errors::NotFound, result[:message]
+    when 422 #UnprocessableEntity
+      fail TireLibrary::Errors::UnprocessableEntity, result[:message]
     when 500..599 #InternalServerError
+      fail TireLibrary::Errors::InternalServerError, result[:message]
     end
-  #rescue MultiJson::ParseError => exception
+  rescue MultiJson::ParseError => exception
+    fail TireLibrary::Errors::MalformedJSONResponse , exception.cause
   end
 
   def build_path(*resources)
-    @version << resources.compact.join("/")
+    "/#{@version}/#{resources.compact.join("/")}"
   end
 end
